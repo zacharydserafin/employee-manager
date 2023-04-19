@@ -22,6 +22,18 @@ function showPrompts() {
                 value: "View All Employees"
                 },
                 {
+                name: "View Employees By Department",
+                value: "View Employees By Department"
+                },
+                {
+                name: "View Employees By Manager",
+                value: "View Employees By Manager"
+                },
+                {
+                name: "View Utilized Budget By Department",
+                value: "View Utilized Budget By Department"
+                },
+                {
                 name: "Add Department",
                 value: "Add Department"
                 },
@@ -34,8 +46,24 @@ function showPrompts() {
                 value: "Add Employee"
                 },
                 {
+                name: "Remove Department",
+                value: "Remove Department"
+                },
+                {
+                name: "Remove Role",
+                value: "Remove Role"
+                },
+                {
+                name: "Remove Employee",
+                value: "Remove Employee"
+                },
+                {
                 name: "Update Employee Role",
                 value: "Update Employee Role"
+                },
+                {
+                name: "Update Employee Manager",
+                value: "Update Employee Manager"
                 },
                 {
                 name: "Quit",
@@ -55,6 +83,15 @@ function showPrompts() {
             case "View All Employees":
                 viewAllEmployees();
                 break;
+            case "View Employees By Department":
+                viewEmployeesByDepartment();
+                break;
+            case "View Employees By Manager":
+                viewEmployeesByManager();
+                break;
+            case "View Utilized Budget By Department":
+                viewUtilizedBudgetByDepartment();
+                break;
             case "Add Department":
                 addDepartment();
                 break;
@@ -64,8 +101,20 @@ function showPrompts() {
             case "Add Employee":
                 addEmployee();
                 break;
+            case "Remove Department":
+                removeDepartment();
+                break;
+            case "Remove Role":
+                removeRole();
+                break;
+            case "Remove Employee":
+                removeEmployee();
+                break;
             case "Update Employee Role":
                 updateEmployeeRole();
+                break;
+            case "Update Employee Manager":
+                updateEmployeeManager();
                 break;
             default:
                 process.exit();
@@ -87,6 +136,60 @@ function viewAllRoles() {
 
 function viewAllEmployees() {
     db.selectEmployees()
+        .then(([data]) => console.table(data))
+        .then(() => showPrompts());
+}
+
+function viewEmployeesByDepartment() {
+    db.selectDepartments()
+        .then(([data]) => {
+            const departments = data.map(({ id, name }) => ({
+                name: name,
+                value: id
+            }));
+            inquirer.prompt([
+                {
+                    type: "list",
+                    name: "departmentId",
+                    message: "Which department would you like to view?",
+                    choices: departments
+                }
+            ])
+                .then(res => db.selectEmployeesByDepartment(res.departmentId))
+                .then(([data]) => console.table(data))
+                .then(() => showPrompts());
+        });
+}
+
+function viewEmployeesByManager() {
+    db.selectEmployees()
+        .then(([data]) => {
+            const potentialManagers = data.map(({ id, first_name, last_name }) => ({
+                name: `${first_name} ${last_name}`,
+                value: id 
+            }));
+            inquirer.prompt([
+                {
+                    type: "list",
+                    name: "managerId",
+                    message: "Which employee would you like to view subordinates for?",
+                    choices: potentialManagers
+                }
+            ])
+                .then(res => db.selectEmployeesByManager(res.managerId))
+                .then(([data]) => {
+                    if (!data) {
+                        console.log("The selected employee has no subordinates");
+                    } else {
+                        console.table(data);
+                    }
+                })
+                .then(() => showPrompts())
+        });
+}
+
+function viewUtilizedBudgetByDepartment() {
+    db.selectDepartmentBudgets()
         .then(([data]) => console.table(data))
         .then(() => showPrompts());
 }
@@ -202,6 +305,69 @@ function addEmployee() {
         })
 }
 
+function removeDepartment() {
+    db.selectDepartments()
+        .then(([data]) => {
+            const departments = data.map(({ id, name }) => ({
+                name: name,
+                value: id
+            }));
+            inquirer.prompt([
+                {
+                    type: "list",
+                    name: "departmentId",
+                    message: "Which department would you like to remove? (Caution: this will also remove all roles and employees from the selected department)",
+                    choices: departments
+                }
+            ])
+                .then(res => db.deleteDepartment(res.departmentId))
+                .then(() => console.log("Removed Department From Database"))
+                .then(() => showPrompts())
+        })
+}
+
+function removeRole() {
+    db.selectRoles()
+        .then(([data]) => {
+            const roles = data.map(({ id, title }) => ({
+                name: title,
+                value: id
+            }));
+            inquirer.prompt([
+                {
+                    type: "list",
+                    name: "roleId",
+                    message: "Which role would you like to remove? (Caution: this will also remove all employees from the selected role)",
+                    choices: roles
+                }
+            ])
+                .then(res => db.deleteRole(res.roleId))
+                .then(() => console.log("Removed Role From Database"))
+                .then(() => showPrompts())
+        })
+}
+
+function removeEmployee() {
+    db.selectEmployees()
+        .then(([data]) => {
+            const employees = data.map(({ id, first_name, last_name }) => ({
+                name: `${first_name} ${last_name}`,
+                value: id
+            }));
+            inquirer.prompt([
+                {
+                    type: "list",
+                    name: "employeeId",
+                    message: "Which employee would you like to remove?",
+                    choices: employees
+                }
+            ])
+                .then(res => db.deleteEmployee(res.employeeId))
+                .then(() => console.log("Removed Employee From Database"))
+                .then(() => showPrompts())
+        })
+}
+
 function updateEmployeeRole() {
     db.selectEmployees()
         .then(([data]) => {
@@ -241,6 +407,45 @@ function updateEmployeeRole() {
                             .then(() => showPrompts())
                     });
             });
+        })
+}
+
+function updateEmployeeManager() {
+    db.selectEmployees()
+        .then(([data]) => {
+            const employees = data.map(({ id, first_name, last_name }) => ({
+                name: `${first_name} ${last_name}`,
+                value: id
+            }));
+            inquirer.prompt([
+                {
+                    type: "list",
+                    name: "employeeId",
+                    message: "Which employee is getting a new manager?",
+                    choices: employees
+                }
+            ])
+                .then(res => {
+                    let employeeId = res.employeeId;
+                    db.selectPossibleManagers(employeeId)
+                        .then(([data]) => {
+                            const potentialManagers = data.map(({ id, first_name, last_name }) => ({
+                                name: `${first_name} ${last_name}`,
+                                value: id
+                            }));
+                            inquirer.prompt([
+                                {
+                                    type: "list",
+                                    name: "managerId",
+                                    message: "Who is their new manager?",
+                                    choices: potentialManagers
+                                }
+                            ])
+                                .then(res => db.updateManager(res.managerId, employeeId))
+                                .then(() => console.log("Updated Employee's Manager"))
+                                .then(() => showPrompts())
+                        })
+                })
         })
 }
 
